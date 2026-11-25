@@ -1,0 +1,29 @@
+# Quarrix configuration
+# Locations read in order: --config, $QUARRIX_CONFIG, ./quarrix.toml,
+# ~/.config/quarrix/config.toml (Windows: %APPDATA%\quarrix\config.toml)
+
+# Output folder: extractions go to <output_dir>/sources/.
+# No default; the window asks for it and saves it on the first drop.
+output_dir = "~/Documents/Quarrix"
+
+# Optional: "quarrix dist --publish" copies only the compiled pack
+# (quarrix-pack/) here, never the sources. For example a clone of a public repository.
+# publish_dir = "~/MyPublicPack"
+
+# auto (Docling if installed, otherwise PyMuPDF) | docling | pymupdf
+engine = "auto"
+
+# Figure resolution: 2.0 ≈ 144 dpi, 3.0 ≈ 216 dpi
+image_scale = 2.0
+
+# OCR for scanned PDFs (Docling only)
+ocr = false
+
+# Read chart values as CSV with a local vision model (Docling, ~4 GB)
+chart_data = false
+
+# Initial meta.json values for each new document (to correct case by case)
+[licence]
+status = "unknown"        # unknown | public-domain | open | permission | proprietary
+distribution = "derived"  # none | derived | full
+holder = ""

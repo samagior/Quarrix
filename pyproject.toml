@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quarrix"
+version = "0.1.0"
+description = "PDF extraction (text, tables, figures) that keeps the document hierarchy, in a format readable by AI."
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.11"
+dependencies = [
+    "pymupdf>=1.24",
+    "PySide6>=6.6",
+    "tomli-w>=1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/samagior/Quarrix"
+
+[project.optional-dependencies]
+# Recommended engine: better detection of hierarchy, tables and figures.
+docling = ["docling>=2.0"]
+dev = ["pytest>=8", "reportlab>=4"]
+
+[project.scripts]
+quarrix = "quarrix.cli:main"
+
+[project.gui-scripts]
+quarrix-gui = "quarrix.gui:main"
+
+[tool.setuptools.packages.find]
+include = ["quarrix*"]
+
+[tool.setuptools.package-data]
+quarrix = ["default_types.toml"]

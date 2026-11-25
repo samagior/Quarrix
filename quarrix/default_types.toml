@@ -1,0 +1,229 @@
+# Quarrix classification: default values (geared towards technical documents in
+# the construction field; adapt them to your own domain).
+#
+# On first launch, this file is copied to <output_dir>/types.toml (the output
+# folder) so that the classification is shared and versioned with the data.
+# Then edit <output_dir>/types.toml, or use "Manage types…" in the window.
+
+schema = "1.0"
+
+# 1. Source categories
+[categories]
+government = "Government and public bodies"
+organization = "Organization, association or institute"
+standards-body = "Standards body (CSA, ULC, ASTM, ISO…)"
+manufacturer = "Manufacturer"
+distributor = "Distributor or supplier"
+professional = "Professional firm (architecture, engineering)"
+education = "Education and research"
+other = "Other"
+
+# 4. Suggested subjects (any other subject can be typed freely)
+[subjects]
+list = [
+  "structure", "foundations", "wood framing", "steel", "concrete", "masonry",
+  "building envelope", "assemblies", "thermal insulation", "air barrier", "vapour barrier",
+  "waterproofing", "roofing", "cladding", "windows and doors",
+  "fire safety", "fire resistance", "sound insulation", "acoustics",
+  "energy efficiency", "ventilation", "plumbing", "heating", "electrical",
+  "accessibility", "exits", "loads", "snow and wind", "seismic",
+  "materials", "costs", "specifications",
+]
+
+# 3. Document types
+#
+# Each type has:
+#   label, description
+#   category           suggested default category
+#   licence_status     suggested licence status (unknown, public-domain, open, permission, proprietary)
+#   distribution       none | derived | full
+#   [types.<id>.docling]  Docling engine options for this type:
+#     ocr                  OCR of areas without text
+#     force_full_page_ocr  OCR of the whole page (scanned documents)
+#     ocr_lang             OCR languages, e.g. ["en", "fr"]
+#     table_mode           "accurate" (slow, precise) or "fast"
+#     images_scale         figure resolution (2.0 ≈ 144 dpi)
+#     picture_classification  classify figures (chart, drawing, photo, logo…)
+#     chart_data           read chart values as CSV (vision model, heavy)
+#     formulas             recognize mathematical formulas (LaTeX)
+#     headings.use_bookmarks / use_numbering / use_style
+#     headings.max_level
+#     headings.numbering_keywords  numbering keywords (English and French)
+#     headings.numbering_schemes   order of levels, from highest to lowest
+
+[types.building-code]
+label = "Building code or regulation"
+description = "National and provincial building codes, energy and plumbing codes, municipal by-laws."
+category = "government"
+licence_status = "proprietary"
+distribution = "derived"
+subjects = []
+
+[types.building-code.docling]
+ocr = false
+table_mode = "accurate"
+images_scale = 2.0
+picture_classification = true
+chart_data = false
+formulas = true
+
+[types.building-code.docling.headings]
+use_bookmarks = true
+use_numbering = true
+use_style = true
+max_level = 8
+# Division A/B/C > Part 9 > Section 9.23 > Subsection 9.23.3 > Article 9.23.3.1. > sentence 1) > clause a)
+numbering_schemes = ["division", "part", "chapter", "subdivision", "article", "arabic", "alpha_l", "roman_l"]
+
+[types.building-code.docling.headings.numbering_keywords]
+division = ["division"]
+part = ["part", "partie"]
+chapter = ["section"]
+subdivision = ["subsection", "sous-section"]
+article = ["article", "art."]
+
+[types.standard]
+label = "Standard"
+description = "CSA, ULC, ASTM, ISO standards."
+category = "standards-body"
+licence_status = "proprietary"
+distribution = "derived"
+subjects = []
+
+[types.standard.docling]
+ocr = false
+table_mode = "accurate"
+images_scale = 2.0
+picture_classification = true
+formulas = true
+
+[types.standard.docling.headings]
+max_level = 6
+
+[types.standard.docling.headings.numbering_keywords]
+part = ["part", "partie"]
+chapter = ["chapter", "chapitre"]
+article = ["article", "art."]
+
+[types.datasheet]
+label = "Product data sheet"
+description = "Manufacturer data sheets, technical data, installation guides."
+category = "manufacturer"
+licence_status = "proprietary"
+distribution = "derived"
+subjects = []
+
+[types.datasheet.docling]
+ocr = true
+table_mode = "accurate"
+images_scale = 2.5
+picture_classification = true
+
+[types.datasheet.docling.headings]
+max_level = 4
+
+[types.product-evaluation]
+label = "Product evaluation or listing"
+description = "Evaluation reports, listings, test reports."
+category = "government"
+licence_status = "unknown"
+distribution = "derived"
+subjects = []
+
+[types.product-evaluation.docling]
+ocr = false
+table_mode = "accurate"
+images_scale = 2.0
+
+[types.technical-guide]
+label = "Technical guide or manual"
+description = "Best-practice guides, design manuals, technical bulletins."
+category = "organization"
+licence_status = "unknown"
+distribution = "derived"
+subjects = []
+
+[types.technical-guide.docling]
+ocr = false
+table_mode = "accurate"
+images_scale = 2.0
+picture_classification = true
+formulas = true
+
+[types.catalog]
+label = "Catalog or price list"
+description = "Product catalogs, span tables, price lists."
+category = "distributor"
+licence_status = "proprietary"
+distribution = "derived"
+subjects = []
+
+[types.catalog.docling]
+ocr = true
+table_mode = "accurate"
+images_scale = 1.5
+
+[types.catalog.docling.headings]
+max_level = 3
+
+[types.specification]
+label = "Specification"
+description = "Descriptive and performance specifications, master specification sections."
+category = "professional"
+licence_status = "unknown"
+distribution = "derived"
+subjects = ["specifications"]
+
+[types.specification.docling]
+ocr = false
+table_mode = "fast"
+images_scale = 1.5
+
+[types.specification.docling.headings]
+max_level = 6
+
+[types.specification.docling.headings.numbering_keywords]
+part = ["part", "partie"]
+chapter = ["section"]
+
+[types.drawings]
+label = "Drawings and details"
+description = "Construction details, sections, shop drawings."
+category = "professional"
+licence_status = "unknown"
+distribution = "derived"
+subjects = []
+
+[types.drawings.docling]
+ocr = true
+table_mode = "fast"
+images_scale = 3.0
+picture_classification = true
+
+[types.scanned-document]
+label = "Scanned document"
+description = "Scanned PDF without a text layer: full-page OCR."
+category = "other"
+licence_status = "unknown"
+distribution = "derived"
+subjects = []
+
+[types.scanned-document.docling]
+ocr = true
+force_full_page_ocr = true
+ocr_lang = ["en", "fr"]
+table_mode = "accurate"
+images_scale = 2.0
+
+[types.other]
+label = "Other document"
+description = "Default type."
+category = "other"
+licence_status = "unknown"
+distribution = "derived"
+subjects = []
+
+[types.other.docling]
+ocr = false
+table_mode = "accurate"
+images_scale = 2.0

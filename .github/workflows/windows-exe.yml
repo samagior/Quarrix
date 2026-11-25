@@ -1,0 +1,57 @@
+name: windows-exe
+# Builds Quarrix.exe on Windows.
+# - on every push to main (or to the development branch): the exe is published
+#   to the "latest-build" pre-release, replaced on every build;
+# - on a v* tag: the exe is published to that version's release.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install . pyinstaller
+      - name: Build the executable
+        run: pyinstaller --noconfirm packaging/quarrix.spec
+      - name: Check
+        shell: pwsh
+        run: |
+          $exe = Get-Item dist/Quarrix.exe
+          "{0:N1} MB" -f ($exe.Length / 1MB)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Quarrix-windows
+          path: dist/Quarrix.exe
+      - name: Publish the latest-build pre-release
+        if: startsWith(github.ref, 'refs/heads/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-build
+          target_commitish: ${{ github.sha }}
+          name: Latest build (${{ github.ref_name }})
+          body: |
+            Executable built automatically from `${{ github.ref_name }}` (${{ github.sha }}).
+            Download `Quarrix.exe` below and run it.
+          files: dist/Quarrix.exe
+          prerelease: true
+          make_latest: false
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Quarrix.exe
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
