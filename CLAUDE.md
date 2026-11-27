@@ -12,7 +12,9 @@ names only; never real documents, personal paths or personal data.
 - `quarrix/engines/`: Docling (recommended) and PyMuPDF (fallback) engines. Both
   produce an `ExtractedDocument` (`quarrix/model.py`); no output logic in engines.
 - `quarrix/writer.py`: writes `document.md`, `document.json`, `meta.json`, CSV and
-  PNG. `meta.json` must never be overwritten (data entered by hand).
+  PNG. `meta.json` must never be overwritten (data entered by hand). Keep every
+  output file well under GitHub's 100 MB limit (compact JSON, no raw Docling
+  export by default; see "File size" in `docs/FORMAT.md`).
 - `quarrix/dist.py`: distributable pack. Any change must keep the rule
   "`full` only if the licence allows it, otherwise `derived`".
 - `quarrix/doctypes.py` + `default_types.toml`: classification (category,

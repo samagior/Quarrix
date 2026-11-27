@@ -225,6 +225,7 @@ extracted PDF again only updates its classification, without re-extracting it.
 quarrix extract docs/*.pdf          # extract without the window
 quarrix extract code.pdf --type building-code --author "Example Code Council" --subject assemblies
 quarrix classify <id> --subject "thermal insulation"   # reclassify without re-extracting
+quarrix compact                     # shrink older extractions (no re-extraction)
 quarrix list --type building-code   # filter by --type, --category, --author, --subject
 quarrix types [building-code]       # list types or show one configuration
 quarrix extract folder/ --force     # a whole folder, re-extracting
@@ -249,6 +250,12 @@ downloaded), Quarrix falls back to PyMuPDF.
 See [docs/FORMAT.md](docs/FORMAT.md). In short, for each PDF: `document.md`
 (reading), `document.json` (structure), `meta.json` (provenance and licence),
 `tables/*.csv`, `figures/*.png`.
+
+Files are kept small enough for a Git repository (GitHub refuses files above
+100 MB): compact `document.json`, no raw Docling export unless `native_export =
+true`, and a warning for any file above 50 MB. If an older extraction is too
+large, run `quarrix compact`. Details in
+[docs/FORMAT.md](docs/FORMAT.md#file-size).
 
 ## Copyright and distribution
 

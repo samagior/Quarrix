@@ -61,6 +61,9 @@ Check in every `meta.json`: `licence.status`, `licence.distribution`,
 """
 
 GITIGNORE = """dist/
+# raw Docling export (only with native_export = true): large, kept locally
+native.json
+native.json.gz
 *.pdf
 .DS_Store
 Thumbs.db

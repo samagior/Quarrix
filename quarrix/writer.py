@@ -8,17 +8,26 @@ Tree produced for each PDF::
         meta.json        provenance, SHA-256 fingerprint, licence, distribution rules
         tables/t001.csv  one CSV per table
         figures/f001.png one image per figure or chart
-        native.json      native engine export (Docling), when available
+        native.json.gz   raw engine export (Docling), only with ``native_export = true``
 
 ``meta.json`` is never overwritten if it already exists: licence information
 entered by hand survives a new extraction.
+
+Output is kept small so that an output folder can live in a Git repository
+(GitHub warns at 50 MB per file and refuses 100 MB): JSON is written with one
+block per line, table cells only go to their CSV, bounding boxes are dropped
+unless ``geometry = true``, and the raw Docling export (which repeats every table
+cell with its geometry and can reach hundreds of MB) is off by default.
 """
 
 from __future__ import annotations
 
 import csv
+import gzip
+import io
 import hashlib
 import json
+import logging
 import re
 import unicodedata
 from datetime import datetime, timezone
@@ -29,7 +38,10 @@ from quarrix.config import Config
 from quarrix.doctypes import Classification, DocType, load_registry
 from quarrix.model import Block, ExtractedDocument, Section
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "2.0"
+
+log = logging.getLogger(__name__)
+NATIVE_FILES = ("native.json", "native.json.gz")
 
 
 def sha256_file(path: Path) -> str:
@@ -194,7 +206,7 @@ def write_document(pdf: Path, doc: ExtractedDocument, cfg: Config, digest: str |
                 csv.writer(fh).writerows(b.rows or [])
         elif b.type == "figure" and b.image_bytes:
             b.file = f"figures/{b.id}.png"
-            (out / b.file).write_bytes(b.image_bytes)
+            (out / b.file).write_bytes(optimize_png(b.image_bytes))
 
     meta_path = out / "meta.json"
     if meta_path.is_file():
@@ -219,16 +231,21 @@ def write_document(pdf: Path, doc: ExtractedDocument, cfg: Config, digest: str |
     }
     _dump(meta_path, meta)
 
-    _dump(out / "document.json", build_document_json(doc, sections, meta))
+    _dump_document(out / "document.json",
+                   build_document_json(doc, sections, meta, geometry=cfg.geometry))
     (out / "document.md").write_text(render_markdown(doc, meta), encoding="utf-8")
-    if doc.native is not None:
-        _dump(out / "native.json", doc.native)
+    for name in NATIVE_FILES:  # never leave a stale (and possibly huge) export behind
+        (out / name).unlink(missing_ok=True)
+    if doc.native is not None and cfg.native_export:
+        with gzip.open(out / "native.json.gz", "wt", encoding="utf-8") as fh:
+            json.dump(doc.native, fh, ensure_ascii=False, separators=(",", ":"))
 
     update_index(cfg)
     return out
 
 
-def build_document_json(doc: ExtractedDocument, sections: list[Section], meta: dict) -> dict:
+def build_document_json(doc: ExtractedDocument, sections: list[Section], meta: dict,
+                        geometry: bool = False) -> dict:
     return {
         "schema": SCHEMA_VERSION,
         "id": meta["id"],
@@ -246,7 +263,7 @@ def build_document_json(doc: ExtractedDocument, sections: list[Section], meta: d
             {"id": b.id, "page": b.page, "section": b.section, "caption": b.caption, "file": b.file}
             for b in doc.blocks if b.type == "figure"
         ],
-        "blocks": [b.to_dict() for b in doc.blocks],
+        "blocks": [b.to_dict(geometry=geometry, rows=False) for b in doc.blocks],
     }
 
 
@@ -337,6 +354,96 @@ def known_values(cfg: Config) -> dict[str, list[str]]:
 
 def _count_sections(outline: list[dict]) -> int:
     return sum(1 + _count_sections(s.get("children", [])) for s in outline)
+
+
+def optimize_png(data: bytes) -> bytes:
+    """Recompress a PNG losslessly (Pillow, when installed); keep the smaller one."""
+    try:
+        from PIL import Image
+    except ImportError:
+        return data
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            buf = io.BytesIO()
+            img.save(buf, format="PNG", optimize=True)
+    except Exception:  # noqa: BLE001 - keep the original image
+        return data
+    out = buf.getvalue()
+    return out if len(out) < len(data) else data
+
+
+def large_files(folder: Path, limit_mb: float) -> list[tuple[str, float]]:
+    """Files of ``folder`` larger than ``limit_mb`` (relative path, size in MB)."""
+    found = []
+    for f in sorted(folder.rglob("*")):
+        if f.is_file() and (size := f.stat().st_size / 1e6) > limit_mb:
+            found.append((f.relative_to(folder).as_posix(), round(size, 1)))
+    return found
+
+
+def compact_document(doc_dir: Path, geometry: bool = False, keep_native: bool = False) -> tuple[int, int]:
+    """Shrink an existing extraction without re-extracting it.
+
+    Rewrites ``document.json`` in the compact layout (table cells that are already
+    in a CSV and, unless ``geometry``, bounding boxes are dropped), removes the raw
+    Docling export (or gzips it with ``keep_native``) and recompresses the PNGs.
+    ``meta.json`` is not touched. Returns the folder size before and after, in bytes.
+    """
+    before = _folder_size(doc_dir)
+    docj = doc_dir / "document.json"
+    if docj.is_file():
+        d = json.loads(docj.read_text(encoding="utf-8"))
+        for b in d.get("blocks", []):
+            if b.get("type") == "table" and b.get("file"):
+                b.pop("rows", None)
+            if not geometry:
+                b.pop("bbox", None)
+            elif b.get("bbox"):
+                b["bbox"] = [round(v, 1) for v in b["bbox"]]
+        d["schema"] = SCHEMA_VERSION
+        _dump_document(docj, d)
+    native = doc_dir / "native.json"
+    if native.is_file():
+        if keep_native:
+            with native.open("rb") as src, gzip.open(doc_dir / "native.json.gz", "wb") as dst:
+                for chunk in iter(lambda: src.read(1 << 20), b""):
+                    dst.write(chunk)
+        native.unlink()
+    elif not keep_native:
+        (doc_dir / "native.json.gz").unlink(missing_ok=True)
+    for png in (doc_dir / "figures").glob("*.png"):
+        data = png.read_bytes()
+        smaller = optimize_png(data)
+        if len(smaller) < len(data):
+            png.write_bytes(smaller)
+    return before, _folder_size(doc_dir)
+
+
+def _folder_size(folder: Path) -> int:
+    return sum(f.stat().st_size for f in folder.rglob("*") if f.is_file())
+
+
+def _dump_document(path: Path, data: dict) -> None:
+    """Write ``document.json`` compactly: one line per block, outline and index.
+
+    Much smaller than an indented dump, still valid JSON, readable and
+    diff-friendly (a changed block changes one line).
+    """
+    def one(v) -> str:
+        return json.dumps(v, ensure_ascii=False, separators=(",", ":"))
+
+    lines = ["{"]
+    items = list(data.items())
+    for i, (key, value) in enumerate(items):
+        comma = "," if i < len(items) - 1 else ""
+        if isinstance(value, list) and value:
+            lines.append(f"{one(key)}:[")
+            lines += [one(v) + ("," if j < len(value) - 1 else "") for j, v in enumerate(value)]
+            lines.append("]" + comma)
+        else:
+            lines.append(f"{one(key)}:{one(value)}{comma}")
+    lines.append("}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def _dump(path: Path, data) -> None:

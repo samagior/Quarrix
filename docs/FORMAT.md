@@ -1,4 +1,4 @@
-# Extracted data format (schema 1.0)
+# Extracted data format (schema 2.0)
 
 All output goes to the output folder chosen by the user (`output_dir`), never to
 the application repository.
@@ -14,7 +14,7 @@ the application repository.
 │       ├── meta.json             provenance, licence, distribution rules (edited by hand)
 │       ├── tables/t001.csv       one UTF-8 CSV per table
 │       ├── figures/f001.png      one image per figure or chart
-│       ├── native.json           native Docling export (Docling engine only)
+│       ├── native.json.gz        raw Docling export, only with native_export = true
 │       └── derived/              derived content you write (see DISTRIBUTION.md)
 └── dist/                         distributable pack (generated, ignored by Git)
 ```
@@ -23,6 +23,26 @@ the application repository.
 `manifest.json`, `NOTICE.md` and `documents/<id>/` (`reference.json`,
 `outline.json`, `tables.json`, `derived/`, plus `content.json`/`figures/` only for
 documents under an open licence).
+
+## File size
+
+The output folder is meant to fit in a Git repository: GitHub warns above 50 MB
+per file and refuses files above 100 MB. Quarrix therefore:
+
+- writes `document.json` with **one block per line** (compact, still valid JSON
+  and diff-friendly) instead of an indented dump;
+- keeps table cells only in `tables/*.csv` (a table block points to its `file`);
+- drops bounding boxes, unless `geometry = true` in the configuration;
+- does not write the raw Docling export by default. That export repeats every
+  table cell with its geometry: about 300 MB indented for a 600-page document
+  full of tables, against under 2 MB for `document.json`. With
+  `native_export = true` it is written compressed as `native.json.gz`;
+- recompresses figures losslessly;
+- warns (in the window and the command line) about any file above
+  `size_warning_mb` (50 by default).
+
+`quarrix compact` applies these rules to documents extracted by an older version
+(schema 1.0), without re-extracting them and without touching `meta.json`.
 
 ## Stable identifiers
 
@@ -51,7 +71,7 @@ kept in `title`.
 
 ```jsonc
 {
-  "schema": "1.0",
+  "schema": "2.0",
   "id": "slab-guide-1a6675e5",
   "title": "…",
   "pages": 42,
@@ -65,12 +85,17 @@ kept in `title`.
   "blocks": [                       // reading order
     {"type": "heading", "page": 3, "text": "2 Loads", "level": 1, "id": "h002", "section": "2"},
     {"type": "paragraph", "page": 3, "text": "…", "section": "2"},
-    {"type": "table", "page": 3, "rows": [["…"]], "caption": "…", "id": "t001", "section": "2.1.1", "file": "tables/t001.csv"}
+    {"type": "table", "page": 3, "caption": "…", "id": "t001", "section": "2.1.1", "file": "tables/t001.csv"}
   ]
 }
 ```
 
 Block types: `heading`, `paragraph`, `list_item`, `table`, `figure`, `caption`.
+Table cells are read from the CSV named by `file`. With `geometry = true`, each
+block also has `bbox` (`[left, top, right, bottom]` in PDF points, one decimal).
+
+Changes from schema 1.0: table blocks no longer carry `rows`, `bbox` is optional,
+and `native.json` became the optional `native.json.gz`.
 
 ## meta.json
 

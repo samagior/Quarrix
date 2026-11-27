@@ -27,9 +27,20 @@ class Block:
     section: str = ""  # id of the enclosing section
     file: str = ""  # side file (CSV or PNG), relative to the document folder
 
-    def to_dict(self) -> dict:
+    def to_dict(self, geometry: bool = True, rows: bool = True) -> dict:
+        """Serializable form.
+
+        ``geometry=False`` drops the bounding box; ``rows=False`` drops the cells
+        of a table that is already written to its own CSV file.
+        """
         d = asdict(self)
         d.pop("image_bytes", None)
+        if not geometry:
+            d.pop("bbox", None)
+        elif d.get("bbox"):
+            d["bbox"] = [round(v, 1) for v in d["bbox"]]
+        if not rows and self.file:
+            d.pop("rows", None)
         return {k: v for k, v in d.items() if v not in (None, "", [])}
 
 

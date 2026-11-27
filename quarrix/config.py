@@ -52,6 +52,10 @@ class Config:
     image_scale: float = 2.0  # figure rendering scale (2.0 ≈ 144 dpi)
     ocr: bool = False  # OCR for scanned PDFs (Docling only)
     chart_data: bool = False  # charts -> CSV with a vision model (Docling, heavy)
+    # Output size (keep files small enough for Git hosting such as GitHub):
+    native_export: bool = False  # also write native.json.gz (raw Docling export, very large)
+    geometry: bool = False  # keep block bounding boxes in document.json
+    size_warning_mb: float = 50.0  # warn when an output file is larger than this
     licence: LicenceDefaults = field(default_factory=LicenceDefaults)
     source: Path | None = None  # file the configuration was read from
 
@@ -112,6 +116,9 @@ def _from_file(path: Path) -> Config:
     cfg.image_scale = float(raw.get("image_scale", cfg.image_scale))
     cfg.ocr = bool(raw.get("ocr", cfg.ocr))
     cfg.chart_data = bool(raw.get("chart_data", cfg.chart_data))
+    cfg.native_export = bool(raw.get("native_export", cfg.native_export))
+    cfg.geometry = bool(raw.get("geometry", cfg.geometry))
+    cfg.size_warning_mb = float(raw.get("size_warning_mb", cfg.size_warning_mb))
     lic = raw.get("licence", {})
     cfg.licence = LicenceDefaults(
         status=lic.get("status", cfg.licence.status),
