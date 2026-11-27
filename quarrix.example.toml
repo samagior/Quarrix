@@ -22,6 +22,15 @@ ocr = false
 # Read chart values as CSV with a local vision model (Docling, ~4 GB)
 chart_data = false
 
+# Output size: keep each file small enough for Git hosting (GitHub warns at
+# 50 MB per file and refuses 100 MB). "quarrix compact" shrinks older extractions.
+# Also write native.json.gz, the raw Docling export (very large; for debugging)
+native_export = false
+# Keep block bounding boxes (page coordinates) in document.json
+geometry = false
+# Warn when an output file is larger than this (MB)
+size_warning_mb = 50
+
 # Initial meta.json values for each new document (to correct case by case)
 [licence]
 status = "unknown"        # unknown | public-domain | open | permission | proprietary

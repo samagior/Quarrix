@@ -26,8 +26,10 @@ def get_engine(cfg: Config, settings: DoclingSettings | None = None):
         from quarrix.progress import seconds_per_page
 
         # Separate process: cancellable, with estimated progress.
-        return ProcessEngine("docling", docling_engine.make_engine, settings.to_dict(),
-                             settings.key(), lambda: seconds_per_page("docling"))
+        opts = {**settings.to_dict(), "keep_native": cfg.native_export}
+        return ProcessEngine("docling", docling_engine.make_engine, opts,
+                             settings.key() + f"native={cfg.native_export}",
+                             lambda: seconds_per_page("docling"))
     if cfg.engine == "docling":
         raise RuntimeError(
             "The Docling engine is not installed. Run: pip install \"quarrix[docling]\""

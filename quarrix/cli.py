@@ -2,6 +2,7 @@
 
     quarrix                        opens the drag-and-drop window
     quarrix extract a.pdf b.pdf    extracts without the window (--type, --category, --author…)
+    quarrix compact [ID…]          shrinks existing extractions (no re-extraction)
     quarrix classify ID …          changes the classification of an extracted document
     quarrix list [--type …]        lists documents, filtered by classification
     quarrix types [ID]             lists document types or shows one
@@ -54,6 +55,11 @@ def main(argv: list[str] | None = None) -> int:
     p_ext.add_argument("pdfs", nargs="+", type=Path)
     p_ext.add_argument("-f", "--force", action="store_true", help="re-extract even if already done")
     _add_classification_args(p_ext)
+
+    p_cmp = sub.add_parser("compact", help="shrink existing extractions without re-extracting")
+    p_cmp.add_argument("doc_ids", nargs="*", help="documents to compact (default: all)")
+    p_cmp.add_argument("--keep-native", action="store_true",
+                       help="gzip native.json instead of deleting it")
 
     p_cls = sub.add_parser("classify", help="change the classification of an extracted document")
     p_cls.add_argument("doc_id")
@@ -139,6 +145,27 @@ def _run(args, cfg) -> int:
         print(json.dumps(report, ensure_ascii=False, indent=2))
         return 0
 
+    if args.cmd == "compact":
+        from quarrix.writer import compact_document, large_files, update_index
+
+        folders = ([cfg.sources_dir / i for i in args.doc_ids] if args.doc_ids
+                   else sorted(p for p in cfg.sources_dir.glob("*") if (p / "meta.json").is_file()))
+        total_before = total_after = 0
+        for folder in folders:
+            if not (folder / "meta.json").is_file():
+                print(f"ERR {folder.name} : document not found", file=sys.stderr)
+                continue
+            before, after = compact_document(folder, geometry=cfg.geometry,
+                                             keep_native=args.keep_native or cfg.native_export)
+            total_before += before
+            total_after += after
+            print(f"OK  {folder.name} : {before / 1e6:.1f} MB -> {after / 1e6:.1f} MB")
+            for name, size in large_files(folder, cfg.size_warning_mb):
+                print(f"    warning: {name} is {size} MB")
+        update_index(cfg)
+        print(f"total: {total_before / 1e6:.1f} MB -> {total_after / 1e6:.1f} MB")
+        return 0
+
     if args.cmd == "classify":
         from quarrix.writer import classify_document
 
@@ -186,6 +213,9 @@ def _run(args, cfg) -> int:
         print(f"output_dir      : {cfg.output_dir or '(not chosen)'}")
         print(f"publish_dir     : {cfg.publish_dir or '(not configured)'}")
         print(f"engine          : {cfg.engine}")
+        print(f"native_export   : {cfg.native_export}")
+        print(f"geometry        : {cfg.geometry}")
+        print(f"size_warning_mb : {cfg.size_warning_mb}")
         print(f"default licence : {cfg.licence}")
         return 0
     return 0

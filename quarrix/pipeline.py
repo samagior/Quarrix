@@ -11,7 +11,7 @@ from quarrix.config import Config
 from quarrix.doctypes import Classification, Registry, load_registry
 from quarrix.engines import get_engine
 from quarrix.progress import CancelToken, Cancelled, ProgressFn, record_speed
-from quarrix.writer import document_slug, sha256_file, write_document
+from quarrix.writer import document_slug, large_files, sha256_file, write_document
 
 log = logging.getLogger(__name__)
 
@@ -119,8 +119,11 @@ class Extractor:
         n_tab = sum(1 for b in doc.blocks if b.type == "table")
         n_fig = sum(1 for b in doc.blocks if b.type == "figure")
         n_sec = sum(1 for b in doc.blocks if b.type == "heading")
-        return Result(
-            pdf, out, True,
-            f"{doctype.label} · {doc.page_count} p., {n_sec} headings, {n_tab} tables, "
-            f"{n_fig} figures ({doc.engine})",
-        )
+        message = (f"{doctype.label} · {doc.page_count} p., {n_sec} headings, {n_tab} tables, "
+                   f"{n_fig} figures ({doc.engine})")
+        big = large_files(out, self.cfg.size_warning_mb)
+        if big:
+            listed = ", ".join(f"{name} {size} MB" for name, size in big)
+            log.warning("Large output files in %s: %s", out, listed)
+            message += f" · warning, large files: {listed}"
+        return Result(pdf, out, True, message)

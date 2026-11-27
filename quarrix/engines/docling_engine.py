@@ -28,7 +28,8 @@ def is_available() -> bool:
 
 def make_engine(settings: dict) -> "DoclingEngine":
     """Factory used in the worker process (must stay at module level)."""
-    return DoclingEngine(DoclingSettings.from_dict(settings))
+    return DoclingEngine(DoclingSettings.from_dict(settings),
+                         keep_native=bool(settings.get("keep_native", False)))
 
 
 def build_pipeline_options(s: DoclingSettings):
@@ -72,11 +73,12 @@ def build_pipeline_options(s: DoclingSettings):
 class DoclingEngine:
     name = "docling"
 
-    def __init__(self, settings: DoclingSettings | None = None):
+    def __init__(self, settings: DoclingSettings | None = None, keep_native: bool = False):
         from docling.datamodel.base_models import InputFormat
         from docling.document_converter import DocumentConverter, PdfFormatOption
 
         self.settings = settings or DoclingSettings()
+        self.keep_native = keep_native  # raw export is large: only build it when asked
         opts = build_pipeline_options(self.settings)
         self._converter = DocumentConverter(
             format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=opts)}
@@ -137,8 +139,10 @@ class DoclingEngine:
                 kind = "caption" if label == "caption" else "paragraph"
                 blocks.append(Block(kind, page, item.text, bbox=bbox))
 
-        native = ddoc.export_to_dict()
-        _strip_images(native)
+        native = None
+        if self.keep_native:
+            native = ddoc.export_to_dict()
+            _strip_images(native)
         meta = {}
         try:
             import pymupdf
